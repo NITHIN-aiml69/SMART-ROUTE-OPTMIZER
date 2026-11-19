@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Urban Multi-Modal Route & Infrastructure Optimizer</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- Leaflet.js Real-World GIS Mapping API (Multi-CDN with Auto-Fallback) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" crossorigin="" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js" crossorigin=""></script>
+    <script>
+        // Fallback to unpkg if cdnjs fails
+        if (typeof L === 'undefined') {
+            document.write('<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />');
+            document.write('<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""><\/script>');
+        }
+    </script>
+    <!-- MathJax for formula rendering -->
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+    <!-- Top Prototype Operations Header -->
+    <header class="app-header">
+        <div class="header-left">
+            <div class="logo-box">
+                <span class="logo-icon">🌐</span>
+                <div>
+                    <h1 class="logo-title">Smart Urban Optimizer</h1>
+                    <span class="logo-subtitle">Municipal Operations Center & Grid Simulation Prototype</span>
+                </div>
+            </div>
+            <div class="system-status-badges">
+                <span class="pill-system pill-system-green">● Grid Core Active</span>
+                <span class="pill-system">⚡ Dual-Engine Optimizer</span>
+                <span class="pill-system">🛡️ Structural Validation</span>
+            </div>
+        </div>
+
+        <!-- Central Global Spatial Search Engine -->
+        <div class="header-center">
+            <div class="global-search-container">
+                <span class="search-icon-badge">🔍</span>
+                <input type="text" id="globalSearchInput" class="global-search-input" placeholder="Search hubs, metro, hospitals, corridors (e.g. Silk Board, ITPL, Majestic)..." autocomplete="off">
+                <button id="globalSearchClearBtn" class="search-clear-btn" title="Clear Search" style="display: none;">&times;</button>
+                <div id="searchSuggestionsBox" class="search-suggestions-dropdown"></div>
+            </div>
+        </div>
+
+        <div class="header-right">
+            <div class="preset-selector-box">
+                <label for="presetSelect">City Scenario:</label>
+                <select id="presetSelect" class="form-select">
+                    <option value="bangalore" selected>Bengaluru Real-World Smart Grid (GIS Map)</option>
+                    <option value="default">Neo-Metropolis Smart Grid (Full Multi-Modal)</option>
+                    <option value="eulerian">High-Density Municipal Sweeper Grid (Zero Deadhead)</option>
+                    <option value="planarity">Underground Utility Conflict Grid (Planarity Clash)</option>
+                </select>
+            </div>
+            <div id="backendStatus" class="status-badge">
+                <span class="badge-online">● Connecting</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="main-container">
+        <!-- Left Side: Interactive Canvas Visualizer -->
+        <section class="canvas-section">
+            <div class="canvas-header-bar">
+                <div class="canvas-title-group">
+                    <h2>Interactive City Grid Visualizer</h2>
+                    <span id="topMetricsBadge" class="metrics-pill">Loading topology...</span>
+                </div>
+                <div class="canvas-controls">
+                    <div class="view-mode-toggle">
+                        <button id="viewOsmBtn" class="view-mode-btn active" title="Free OpenStreetMap (No API Key Required)">🌍 Leaflet OSM</button>
+                        <button id="viewGisBtn" class="view-mode-btn" title="Google Maps (Optional - Requires API Key)">🗺️ Google Maps</button>
+                        <button id="viewCanvasBtn" class="view-mode-btn" title="Topological Canvas">📐 Canvas</button>
+                    </div>
+                    <button id="googleMapsKeyBtn" class="btn-gmaps-key" title="Configure Google Maps API Key (Optional)">
+                        <span id="gmapsStatusDot" class="key-status-dot"></span> 🔑 API Key
+                    </button>
+                    <div class="map-quick-tools">
+                        <div class="map-search-box">
+                            <input type="text" id="mapSearchInput" class="map-search-input" placeholder="Search hub...">
+                            <button id="mapSearchBtn" class="map-search-btn" title="Search">🔍</button>
+                        </div>
+                        <button id="locateGpsBtn" class="btn-ctrl btn-gps" title="Find and show my live GPS location on map">📍 Locate Me</button>
+                        <button id="liveTrackingBtn" class="btn-ctrl btn-gps-live" title="Toggle continuous real-time satellite GPS tracking">🛰️ Tracker: OFF</button>
+                        <button id="setExactLocBtn" class="btn-ctrl btn-exact-loc" title="Set exact address, street, or pinpoint on map">🎯 Exact Location</button>
+                        <button id="quickNearestHospitalBtn" class="btn-ctrl btn-gps" style="border-color: #ef4444; color: #fca5a5; background: rgba(239, 68, 68, 0.22); font-weight: 700;" title="Instantly find and navigate to closest emergency hospital from current location">🚑 Emergency Hospital</button>
+                    </div>
+                    <label class="traffic-switch">
+                        <input type="checkbox" id="trafficToggle" checked>
+                        <span class="switch-slider"></span>
+                        <span class="switch-label">Traffic</span>
+                    </label>
+                    <button id="resetViewBtn" class="btn-ctrl" title="Reset View">🔍 Fit</button>
+                    <button id="clearOverlayBtn" class="btn-ctrl" title="Clear Visual Highlights">🧹 Clear</button>
+                    <button id="addNodeBtn" class="btn-ctrl btn-accent" title="Add Intersection">+ Node</button>
+                    <button id="addRoadBtn" class="btn-ctrl btn-accent" title="Add Road">+ Road</button>
+                </div>
+            </div>
+
+            <div class="canvas-wrapper">
+                <div id="googleMap"></div>
+                <div id="gisMap" class="active-view"></div>
+                <canvas id="cityCanvas"></canvas>
+                <div class="canvas-legend">
+                    <div class="legend-item"><span class="legend-color legend-road"></span> Road</div>
+                    <div class="legend-item"><span class="legend-color legend-metro-purple"></span> 🟣 Purple</div>
+                    <div class="legend-item"><span class="legend-color legend-metro-green"></span> 🟢 Green</div>
+                    <div class="legend-item"><span class="legend-color legend-metro-yellow"></span> 🟡 Yellow</div>
+                    <div class="legend-item"><span class="legend-color legend-metro-pink"></span> 🌸 Pink</div>
+                    <div class="legend-item"><span class="legend-color legend-mst"></span> MST Pipe</div>
+                    <div class="legend-item"><span class="legend-color legend-dijkstra"></span> Shortest Route</div>
+                    <div class="legend-item"><span class="legend-color legend-congested"></span> Silk Board (&gt;3x)</div>
+                </div>
+            </div>
+            <div class="canvas-hint">
+                💡 <b>Interactive Controls:</b> Click & Drag nodes to reposition • Scroll mouse wheel to Zoom • Click nodes to set Route Origin / Destination
+            </div>
+        </section>
+
+        <!-- Right Side: Phase Navigation & Operations Center -->
+        <section class="panel-section">
+            <div class="tab-navigation">
+                <button class="tab-btn active" data-tab="dashboard" title="Executive Overview Dashboard">
+                    <span class="tab-icon">📊</span> Overview
+                </button>
+                <button class="tab-btn" data-tab="phase1" title="Phase 1: Structural & Topological Validation">
+                    <span class="tab-icon">📐</span> Phase 1
+                </button>
+                <button class="tab-btn" data-tab="phase2a" title="Phase 2A: Dynamic Multi-Modal Shortest Path Engine">
+                    <span class="tab-icon">🚗</span> Phase 2A
+                </button>
+                <button class="tab-btn" data-tab="phase2b" title="Phase 2B: Utility Infrastructure Optimizer (MST)">
+                    <span class="tab-icon">💧</span> Phase 2B
+                </button>
+                <button class="tab-btn" data-tab="phase2c" title="Phase 2C: Municipal Traversal & Sweeping Logistics">
+                    <span class="tab-icon">🚛</span> Phase 2C
+                </button>
+                <button class="tab-btn" data-tab="phase3" title="Phase 3: Operational Audit & Architecture Report">
+                    <span class="tab-icon">📋</span> Phase 3
+                </button>
+            </div>
+
+            <!-- TAB 0: OVERVIEW PROTOTYPE DASHBOARD -->
+            <div id="dashboard" class="tab-pane active">
+                <div class="pane-header">
+                    <h2>Executive Operations Command Dashboard</h2>
+                    <p class="pane-subtitle">Autonomous smart city grid optimization, real-time spatial telemetry & multi-phase status</p>
+                </div>
+                <div class="scroll-area">
+                    <!-- Live KPI Strip: 4 Primary Metrics -->
+                    <div class="dashboard-kpi-banner">
+                        <div class="kpi-card">
+                            <div class="kpi-icon">📍</div>
+                            <div class="kpi-details">
+                                <span class="kpi-title">Intersections</span>
+                                <span id="kpiNodes" class="kpi-number">--</span>
+                                <span class="kpi-sub">Total Grid Nodes</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon">🛣️</div>
+                            <div class="kpi-details">
+                                <span class="kpi-title">Corridors</span>
+                                <span id="kpiEdges" class="kpi-number">--</span>
+                                <span class="kpi-sub">Multi-Modal Edges</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon">💰</div>
+                            <div class="kpi-details">
+                                <span class="kpi-title">MST Savings</span>
+                                <span id="kpiSavings" class="kpi-number highlight-green">--%</span>
+                                <span class="kpi-sub">Capital Cost Saved</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon">🛡️</div>
+                            <div class="kpi-details">
+                                <span class="kpi-title">Planarity</span>
+                                <span id="kpiPlanar" class="kpi-number highlight-cyan">--</span>
+                                <span class="kpi-sub">Euler V-E+F=2</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Instant Command Action Bar -->
+                    <div class="dashboard-actions-strip">
+                        <button class="btn-command-action action-primary" onclick="quickActionRoute()">
+                            <span>🚀</span> <span>Plan Route</span>
+                        </button>
+                        <button class="btn-command-action" onclick="quickActionMST()">
+                            <span>🌲</span> <span>Optimize MST</span>
+                        </button>
+                        <button class="btn-command-action" onclick="quickActionSweeper()">
+                            <span>🚛</span> <span>Sweep Grid</span>
+                        </button>
+                        <button class="btn-command-action" onclick="quickActionPlanarity()">
+                            <span>📐</span> <span>Check Planar</span>
+                        </button>
+                        <button class="btn-command-action" onclick="quickActionReport()">
+                            <span>📋</span> <span>Audit Report</span>
+                        </button>
+                    </div>
+
+                    <!-- Live Municipal Operations Telemetry Feed -->
+                    <div class="telemetry-card">
+                        <div class="telemetry-header">
+                            <span class="telemetry-title">
+                                <span class="live-pulse-dot"></span>
+                                Municipal Sensor Telemetry & Event Stream
+                            </span>
+                            <span id="telemetryStatusBadge" style="font-size: 10px; color: #34d399; font-weight: 600;">STREAM ACTIVE</span>
+                        </div>
+                        <div id="telemetryFeedBody" class="telemetry-body">
+                            <div class="telemetry-line">
+                                <span class="telemetry-time">LIVE</span>
+                                <span class="telemetry-msg"><span class="telemetry-tag-cyan">[GRID]</span> Real-world Bengaluru smart grid active with 16 GPS hubs & 23 corridors.</span>
+                            </div>
+                            <div class="telemetry-line">
+                                <span class="telemetry-time">LIVE</span>
+                                <span class="telemetry-msg"><span class="telemetry-tag-green">[MATH]</span> Handshaking Theorem verified: \(\sum \deg(v) = 2|E|\) confirmed.</span>
+                            </div>
+                            <div class="telemetry-line">
+                                <span class="telemetry-time">LIVE</span>
+                                <span class="telemetry-msg"><span class="telemetry-tag-amber">[TRAFFIC]</span> Silk Board junction bottleneck operating at 3.6x dynamic congestion.</span>
+                            </div>
+                            <div class="telemetry-line">
+                                <span class="telemetry-time">LIVE</span>
+                                <span class="telemetry-msg"><span class="telemetry-tag-green">[UTILITY]</span> Kaveri Water Aqueduct MST layout saves 50.5% construction cost.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Phase Roadmap Grid -->
+                    <div class="phase-roadmap-grid">
+                        <!-- Phase 1 Card -->
+                        <div class="phase-summary-card phase-card-1" onclick="switchTab('phase1')">
+                            <div class="phase-card-header">
+                                <div class="phase-card-title">
+                                    <span>📐</span>
+                                    <span>Phase 1: Structural & Topological Validation</span>
+                                </div>
+                                <span id="dashPhase1Badge" class="status-pill pill-success">Verified</span>
+                            </div>
+                            <p class="phase-desc">
+                                Computes vertex degrees, confirms the Handshaking Property (\(\sum \deg(v) = 2|E|\)), audits grid connectivity, and validates 2D planarity feasibility against Euler's Formula (\(V - E + F = 2\)).
+                            </p>
+                            <div class="phase-metrics-row">
+                                <span class="phase-metric-pill">Degree Sum: <b id="dashDegSum">--</b></span>
+                                <span class="phase-metric-pill">Faces: <b id="dashFaces">--</b></span>
+                                <span class="phase-metric-pill">Clashes: <b id="dashCrossovers">0</b></span>
+                            </div>
+                            <div class="phase-action-bar">
+                                <span class="phase-tag">Topological Integrity</span>
+                                <button class="phase-action-btn">Inspect Validation →</button>
+                            </div>
+                        </div>
+
+                        <!-- Phase 2A Card -->
+                        <div class="phase-summary-card phase-card-2a" onclick="switchTab('phase2a')">
+                            <div class="phase-card-header">
+                                <div class="phase-card-title">
+                                    <span>🚗</span>
+                                    <span>Phase 2A: Dynamic Multi-Modal Routing Engine</span>
+                                </div>
+                                <span class="status-pill pill-success">Active</span>
+                            </div>
+                            <p class="phase-desc">
+                                Implements Dijkstra's algorithm with dynamic congestion weighting. Supports multi-modal transit (Emergency vehicles with traffic sirens, delivery fleets, and rapid metro rail corridors).
+                            </p>
+                            <div class="phase-metrics-row">
+                                <span class="phase-metric-pill">Mode: <b>Emergency / Car / Metro</b></span>
+                                <span class="phase-metric-pill">Complexity: <b>\(\mathcal{O}((V+E)\log V)\)</b></span>
+                            </div>
+                            <div class="phase-action-bar">
+                                <span class="phase-tag">Mobility Optimization</span>
+                                <button class="phase-action-btn">Launch Routing Engine →</button>
+                            </div>
+                        </div>
+
+                        <!-- Phase 2B Card -->
+                        <div class="phase-summary-card phase-card-2b" onclick="switchTab('phase2b')">
+                            <div class="phase-card-header">
+                                <div class="phase-card-title">
+                                    <span>💧</span>
+                                    <span>Phase 2B: Utility Infrastructure Optimization (MST)</span>
+                                </div>
+                                <span class="status-pill pill-success">Optimized</span>
+                            </div>
+                            <p class="phase-desc">
+                                Solves optimal water pipeline, electrical grid, and fiber-optic wiring layout by extracting the Minimum Spanning Tree using Kruskal's (DSU) and Prim's algorithms, eliminating expensive closed loops.
+                            </p>
+                            <div class="phase-metrics-row">
+                                <span class="phase-metric-pill">Redundant Loops Eliminated: <b id="dashLoops">--</b></span>
+                                <span class="phase-metric-pill">Capital Saved: <b id="dashSavingsPill" class="highlight-green">--%</b></span>
+                            </div>
+                            <div class="phase-action-bar">
+                                <span class="phase-tag">Infrastructure Cost Control</span>
+                                <button class="phase-action-btn">View Utility Spanning Tree →</button>
+                            </div>
+                        </div>
+
+                        <!-- Phase 2C Card -->
+                        <div class="phase-summary-card phase-card-2c" onclick="switchTab('phase2c')">
+                            <div class="phase-card-header">
+                                <div class="phase-card-title">
+                                    <span>🚛</span>
+                                    <span>Phase 2C: Municipal Logistics & Street Sweeping</span>
+                                </div>
+                                <span id="dashPhase2cBadge" class="status-pill pill-success">Circuit Ready</span>
+                            </div>
+                            <p class="phase-desc">
+                                Analyzes degree parity to construct non-overlapping Euler trails for street sweepers (Hierholzer's algorithm) and evaluates Hamiltonian cycles for security patrol logistics.
+                            </p>
+                            <div class="phase-metrics-row">
+                                <span class="phase-metric-pill">Euler Traversal: <b id="dashEulerType">--</b></span>
+                                <span class="phase-metric-pill">Patrol Cycle: <b id="dashHamiltonStatus">--</b></span>
+                            </div>
+                            <div class="phase-action-bar">
+                                <span class="phase-tag">Municipal Services</span>
+                                <button class="phase-action-btn">Simulate Fleet Operations →</button>
+                            </div>
+                        </div>
+
+                        <!-- Phase 3 Card -->
+                        <div class="phase-summary-card phase-card-3" onclick="switchTab('phase3')">
+                            <div class="phase-card-header">
+                                <div class="phase-card-title">
+                                    <span>📋</span>
+                                    <span>Phase 3: Operational Audit & Engineering Report</span>
+                                </div>
+                                <span class="status-pill pill-success">Compliant</span>
+                            </div>
+                            <p class="phase-desc">
+                                Full system compliance audit verifying algorithmic performance metrics, cost savings certifications, and civil engineering feasibility for the smart city grid.
+                            </p>
+                            <div class="phase-action-bar">
+                                <span class="phase-tag">Audit & Compliance</span>
+                                <button class="phase-action-btn">Generate Audit Report →</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 1: PHASE 1 - STRUCTURAL & TOPOLOGICAL VALIDATION -->
+            <div id="phase1" class="tab-pane">
+                <div class="pane-header">
+                    <h2>Phase 1: Structural & Topological Validation</h2>
+                    <p class="pane-subtitle">Network integrity, degree parity, Handshaking property, and planarity audit</p>
+                </div>
+                <div class="scroll-area">
+                    <div id="handshakingCard" class="audit-card"></div>
+                    <div id="connectivityCard" class="audit-card"></div>
+                    <div id="planarityCard" class="audit-card"></div>
+                </div>
+            </div>
+
+            <!-- TAB 2: PHASE 2A - DYNAMIC MULTI-MODAL ROUTING -->
+            <div id="phase2a" class="tab-pane">
+                <div class="pane-header">
+                    <h2>Phase 2A: Dynamic Real-Road & Multi-Modal Routing Engine</h2>
+                    <p class="pane-subtitle">Live road routing on OpenStreetMap & Google Maps with traffic & weather weighting</p>
+                </div>
+                <div class="control-box">
+                    <!-- Routing Engine Mode Switcher -->
+                    <div class="routing-engine-selector" style="display: flex; gap: 6px; margin-bottom: 10px; background: rgba(15,23,42,0.6); padding: 4px; border-radius: 6px; border: 1px solid #334155;">
+                        <button type="button" id="engineRoadBtn" class="engine-mode-btn active" style="flex: 1; padding: 6px 10px; font-size: 11px; font-weight: 700; border-radius: 4px; border: none; cursor: pointer; background: #0284c7; color: white;">
+                            🛣️ Real Roads (OSRM / Maps)
+                        </button>
+                        <button type="button" id="engineMetroBtn" class="engine-mode-btn" style="flex: 1; padding: 6px 10px; font-size: 11px; font-weight: 700; border-radius: 4px; border: none; cursor: pointer; background: transparent; color: #94a3b8;">
+                            🚇 Metro Rail Tracks Graph
+                        </button>
+                    </div>
+
+                    <!-- Interactive Pin Helper -->
+                    <div class="road-routing-hint" style="background: rgba(2, 132, 199, 0.12); border-left: 3px solid #38bdf8; padding: 7px 10px; border-radius: 0 4px 4px 0; font-size: 11px; color: #bae6fd; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+                        <span>📍 <b>Road Routing:</b> Select stops or click any road on the map to set Pin [A] & [B]</span>
+                        <button type="button" id="clearRoutePinsBtn" style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; font-size: 10px; padding: 2px 6px; border-radius: 4px; cursor: pointer;">Clear Pins</button>
+                    </div>
+
+                    <div class="route-presets-row">
+                        <span style="font-size: 10px; color: #94a3b8; font-weight: 700; text-transform: uppercase;">Presets:</span>
+                        <span class="route-chip" onclick="findAndRouteToNearestHospital()" style="background: rgba(239, 68, 68, 0.22); border-color: #ef4444; color: #fca5a5; font-weight: 700;">🚑 Nearest Hospital (Auto)</span>
+                        <span class="route-chip" onclick="applyRoutePreset('USER_CURRENT_LOCATION', 'BLR_MAJ', 'car')">📍 My Location ➔ Majestic</span>
+                        <span class="route-chip" onclick="applyRoutePreset('USER_CURRENT_LOCATION', 'BLR_VIC', 'emergency')">🚑 My Location ➔ Victoria Hosp</span>
+                        <span class="route-chip" onclick="applyRoutePreset('BLR_KOR', 'HSP_ST_JOHNS', 'emergency')">🚑 Koramangala ➔ St. John's Hosp</span>
+                        <span class="route-chip" onclick="applyRoutePreset('BLR_SILK', 'HSP_JAYADEVA', 'emergency')">🚑 Silk Board ➔ Jayadeva Cardiac</span>
+                        <span class="route-chip" onclick="applyRoutePreset('BLR_SILK', 'BLR_EC', 'car')">🏢 Silk Board ➔ Electronic City</span>
+                        <span class="route-chip" onclick="applyRoutePreset('MTR_P_WHITEFIELD', 'BLR_MAJ', 'car')">🚗 Whitefield ➔ Majestic</span>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <label for="routeSource" style="margin-bottom: 0;">Origin (Source):</label>
+                                <button type="button" id="useCurrentLocationBtn" class="btn-use-curr-loc" title="Set Origin to my current GPS location">
+                                    📍 Current Location
+                                </button>
+                            </div>
+                            <select id="routeSource" class="form-select"></select>
+                        </div>
+                        <div class="form-group">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <label for="routeDest" style="margin-bottom: 0;">Destination:</label>
+                                <div style="display: flex; gap: 4px;">
+                                    <button type="button" id="nearestHospitalBtn" class="btn-use-curr-loc" style="border-color: #ef4444; color: #fca5a5; background: rgba(239, 68, 68, 0.22); font-weight: 700;" title="Instantly find and route ambulance to nearest emergency hospital">
+                                        🚑 Nearest Hospital
+                                    </button>
+                                    <button type="button" id="useCurrentLocationDestBtn" class="btn-use-curr-loc" style="border-color: #38bdf8; color: #38bdf8; background: rgba(56, 189, 248, 0.15);" title="Set Destination to my current GPS location">
+                                        📍 To My Location
+                                    </button>
+                                </div>
+                            </div>
+                            <select id="routeDest" class="form-select"></select>
+                        </div>
+                    </div>
+                    <div class="form-row mt-2">
+                        <div class="form-group" style="flex: 1.2; min-width: 0;">
+                            <label for="routeMode">Transit Mode:</label>
+                            <select id="routeMode" class="form-select">
+                                <option value="car" selected>🚗 Car / Cab / Taxi (Book Ride & Road Routing)</option>
+                                <option value="emergency">🚑 Emergency Ambulance (Road Priority)</option>
+                                <option value="eco_walk">🚶 Eco Walking / Bicycle (Road Paths)</option>
+                                <option value="metro">🚇 Metro Transit (High-Speed Rail)</option>
+                            </select>
+                        </div>
+                        <div class="form-group btn-align-bottom" style="flex: 0.9; min-width: 0;">
+                            <button id="runDijkstraBtn" class="btn btn-primary w-100">
+                                🚀 Calculate Route
+                            </button>
+                        </div>
+                    </div>
+                    <div class="toggles-row">
+                        <label class="env-switch" title="Simulate monsoon road waterlogging (+45% road delay, 0% on metro)">
+                            <input type="checkbox" id="weatherRainToggle">
+                            <span class="env-slider rain-slider"></span>
+                            <span class="env-label">🌧️ Monsoon (+45% road)</span>
+                        </label>
+                        <label class="env-switch" title="Prioritize low PM2.5 clean air corridors">
+                            <input type="checkbox" id="aqiAwareToggle">
+                            <span class="env-slider aqi-slider"></span>
+                            <span class="env-label">🍃 Clean Air (AQI)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="scroll-area mt-3">
+                    <div id="dijkstraResults"></div>
+                </div>
+            </div>
+
+            <!-- TAB 3: PHASE 2B - UTILITY INFRASTRUCTURE OPTIMIZER (MST) -->
+            <div id="phase2b" class="tab-pane">
+                <div class="pane-header">
+                    <h2>Phase 2B: Utility Infrastructure Optimizer (Minimum Spanning Tree)</h2>
+                    <p class="pane-subtitle">Kruskal's & Prim's algorithms for water pipelines and electrical/fiber grids</p>
+                </div>
+                <div class="control-box">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="primRoot">Prim's Algorithm Root Hub:</label>
+                            <select id="primRoot" class="form-select"></select>
+                        </div>
+                        <div class="btn-group-row">
+                            <button id="runKruskalBtn" type="button" class="btn btn-success" onclick="runMST('kruskal')">
+                                🌲 Run Kruskal's (DSU)
+                            </button>
+                            <button id="runPrimBtn" type="button" class="btn btn-info" onclick="runMST('prim')">
+                                🌿 Run Prim's (From Root)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="scroll-area mt-3">
+                    <div id="mstResults"></div>
+                </div>
+            </div>
+
+            <!-- TAB 4: PHASE 2C - MUNICIPAL LOGISTICS (EULER & HAMILTON) -->
+            <div id="phase2c" class="tab-pane">
+                <div class="pane-header">
+                    <h2>Phase 2C: Municipal Traversal & Sweeping Logistics</h2>
+                    <p class="pane-subtitle">Eulerian trails and Hamiltonian cycles for waste collection and security patrols</p>
+                </div>
+                <div class="scroll-area">
+                    <div id="eulerCard" class="audit-card"></div>
+                    <div id="hamiltonCard" class="audit-card"></div>
+                </div>
+            </div>
+
+            <!-- TAB 5: PHASE 3 - OPERATIONAL AUDIT & REPORT -->
+            <div id="phase3" class="tab-pane">
+                <div class="pane-header">
+                    <h2>Phase 3: Operational Audit & Engineering Report</h2>
+                    <p class="pane-subtitle">Comprehensive algorithmic validation, cost savings analysis, and civil compliance sign-off</p>
+                </div>
+                <div class="scroll-area">
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: 4px;">
+                        <button class="btn btn-primary btn-sm" onclick="window.print()" title="Print full engineering verification report">
+                            🖨️ Export / Print Engineering Audit Report
+                        </button>
+                    </div>
+                    <!-- Report Section 1: Optimization Summary -->
+                    <div class="report-section">
+                        <div class="report-header">
+                            <h3>Smart City Optimization Benchmark</h3>
+                            <span class="compliance-badge">✅ Verified Prototype</span>
+                        </div>
+                        <table class="styled-table">
+                            <thead>
+                                <tr>
+                                    <th>Subsystem Dimension</th>
+                                    <th>Pre-Optimization Baseline</th>
+                                    <th>Post-Optimization Result</th>
+                                    <th>Algorithmic Mechanism</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><b>Surface Traffic Routing</b></td>
+                                    <td>Static distance routing stuck in traffic</td>
+                                    <td><b>Dynamic bottleneck avoidance</b></td>
+                                    <td>Dijkstra with live congestion weights</td>
+                                </tr>
+                                <tr>
+                                    <td><b>Utility Grid Layout</b></td>
+                                    <td>Redundant closed cyclic network</td>
+                                    <td><b>Acyclic Minimum Spanning Tree</b></td>
+                                    <td>Kruskal's (DSU) & Prim's algorithms</td>
+                                </tr>
+                                <tr>
+                                    <td><b>Municipal Waste Sweeping</b></td>
+                                    <td>Random / repeated street deadheading</td>
+                                    <td><b>Non-overlapping single pass</b></td>
+                                    <td>Hierholzer's Eulerian algorithm \(\mathcal{O}(E)\)</td>
+                                </tr>
+                                <tr>
+                                    <td><b>Security Patrol Beat</b></td>
+                                    <td>Arbitrary route order</td>
+                                    <td><b>Closed Hamiltonian cycle</b></td>
+                                    <td>Backtracking permutation optimizer</td>
+                                </tr>
+                                <tr>
+                                    <td><b>Underground Infrastructure</b></td>
+                                    <td>Unchecked 3D crossover clashes</td>
+                                    <td><b>2D Planarity certification</b></td>
+                                    <td>Euler's Formula \(V - E + F = 2\)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Report Section 2: Mathematical Foundations Matrix -->
+                    <div class="report-section">
+                        <div class="report-header">
+                            <h3>Mathematical & Algorithmic Foundations</h3>
+                            <span class="compliance-badge">Structural Integrity Verified</span>
+                        </div>
+                        <div class="audit-grid">
+                            <div class="audit-card-item">
+                                <h4>1. Handshaking Property</h4>
+                                <p><b>Theorem:</b> \(\sum_{v \in V} \deg(v) = 2|E|\). Every undirected corridor contributes exactly +1 to the degrees of both endpoints, guaranteeing that the degree sum is always even.</p>
+                            </div>
+                            <div class="audit-card-item">
+                                <h4>2. Planarity & Euler's Formula</h4>
+                                <p><b>Formula:</b> \(V - E + F = 2\). For simple planar graphs \(E \le 3V - 6\). Ensures that pipeline corridors can be laid without physical crossover clashes.</p>
+                            </div>
+                            <div class="audit-card-item">
+                                <h4>3. Multi-Modal Dijkstra Engine</h4>
+                                <p><b>Complexity:</b> \(\mathcal{O}((V + E) \log V)\) using a Min-Priority Queue. Computes time-optimal routes across diverse transit modes.</p>
+                            </div>
+                            <div class="audit-card-item">
+                                <h4>4. Minimum Spanning Tree</h4>
+                                <p><b>Strategy:</b> Eliminates redundant loops while ensuring 100% connectivity. Kruskal's sorts globally (\(\mathcal{O}(E \log E)\)), Prim's grows from root (\(\mathcal{O}(E \log V)\)).</p>
+                            </div>
+                            <div class="audit-card-item">
+                                <h4>5. Hierholzer's Eulerian Tour</h4>
+                                <p><b>Condition:</b> Traverses every street exactly once if degrees are all even (circuit) or exactly two are odd (trail) in linear \(\mathcal{O}(E)\) time.</p>
+                            </div>
+                            <div class="audit-card-item">
+                                <h4>6. Hamiltonian Patrol Cycle</h4>
+                                <p><b>Condition:</b> Visits every designated intersection exactly once and returns to base, satisfying Dirac's sufficient condition (\(\deg(v) \ge |V| / 2\)).</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Report Section 3: Smart City Industry Ecosystem Architecture & API Stack -->
+                    <div class="report-section">
+                        <div class="report-header">
+                            <h3>Smart City Industry Ecosystem Architecture & API Stack</h3>
+                            <span class="compliance-badge" style="border-color: #38bdf8; color: #38bdf8;">Production Mapping & Mobility</span>
+                        </div>
+                        <p style="font-size: 12px; color: #94a3b8; margin-bottom: 12px; line-height: 1.5;">
+                            How the discrete mathematics foundations of this optimizer translate into production smart-city deployments across maps, routing engines, public transit standards, geocoding, and environmental sensor networks.
+                        </p>
+                        <div class="ecosystem-grid">
+                            <!-- Card 1: Maps & Display -->
+                            <div class="ecosystem-card">
+                                <div class="ecosystem-card-header">
+                                    <div class="ecosystem-card-title">
+                                        <span>🗺️</span>
+                                        <span>Maps & Display Layer</span>
+                                    </div>
+                                    <span class="ecosystem-card-tech">GIS & Vector Tiles</span>
+                                </div>
+                                <p class="ecosystem-card-body">
+                                    Renders interactive spatial representations with live satellite imagery, traffic heatmaps, and customizable vector shaders.
+                                </p>
+                                <div class="ecosystem-tags">
+                                    <span class="ecosystem-tag">Google Maps JS (Routes API)</span>
+                                    <span class="ecosystem-tag">Mapbox GL JS</span>
+                                    <span class="ecosystem-tag">MapLibre GL (OpenStreetMap)</span>
+                                    <span class="ecosystem-tag">Leaflet & CartoDB</span>
+                                </div>
+                            </div>
+
+                            <!-- Card 2: Routing Engines -->
+                            <div class="ecosystem-card">
+                                <div class="ecosystem-card-header">
+                                    <div class="ecosystem-card-title">
+                                        <span>🛣️</span>
+                                        <span>Production Routing Engines</span>
+                                    </div>
+                                    <span class="ecosystem-card-tech">Graph Algorithms</span>
+                                </div>
+                                <p class="ecosystem-card-body">
+                                    Implements Contraction Hierarchies and Multi-Level Dijkstra to compute turn-by-turn routes across millions of edges in sub-milliseconds.
+                                </p>
+                                <div class="ecosystem-tags">
+                                    <span class="ecosystem-tag">OSRM (High-Speed C++)</span>
+                                    <span class="ecosystem-tag">GraphHopper</span>
+                                    <span class="ecosystem-tag">OpenRouteService</span>
+                                    <span class="ecosystem-tag">HERE / TomTom Traffic Flow</span>
+                                </div>
+                            </div>
+
+                            <!-- Card 3: Public Transit -->
+                            <div class="ecosystem-card">
+                                <div class="ecosystem-card-header">
+                                    <div class="ecosystem-card-title">
+                                        <span>🚇</span>
+                                        <span>Public Transit Standards</span>
+                                    </div>
+                                    <span class="ecosystem-card-tech">GTFS & OTP</span>
+                                </div>
+                                <p class="ecosystem-card-body">
+                                    Ingests real-time schedule timetables and live vehicle delays for intermodal transit (Namma Metro, BMTC buses, and rail).
+                                </p>
+                                <div class="ecosystem-tags">
+                                    <span class="ecosystem-tag">GTFS / GTFS-Realtime</span>
+                                    <span class="ecosystem-tag">OpenTripPlanner (OTP)</span>
+                                    <span class="ecosystem-tag">Transitland Feed Aggregator</span>
+                                </div>
+                            </div>
+
+                            <!-- Card 4: Geocoding & Search -->
+                            <div class="ecosystem-card">
+                                <div class="ecosystem-card-header">
+                                    <div class="ecosystem-card-title">
+                                        <span>🔍</span>
+                                        <span>Geocoding & Spatial Search</span>
+                                    </div>
+                                    <span class="ecosystem-card-tech">Spatial Indexing</span>
+                                </div>
+                                <p class="ecosystem-card-body">
+                                    Translates text addresses into spatial GPS coordinates and resolves nearest road intersections via spatial R-tree indices.
+                                </p>
+                                <div class="ecosystem-tags">
+                                    <span class="ecosystem-tag">OSM Nominatim</span>
+                                    <span class="ecosystem-tag">Google Places Autocomplete</span>
+                                    <span class="ecosystem-tag">Pelias</span>
+                                    <span class="ecosystem-tag">Mapbox Geocoding</span>
+                                </div>
+                            </div>
+
+                            <!-- Card 5: Live Vehicle & Fleet Telemetry -->
+                            <div class="ecosystem-card">
+                                <div class="ecosystem-card-header">
+                                    <div class="ecosystem-card-title">
+                                        <span>📡</span>
+                                        <span>Live Tracking & Telemetry</span>
+                                    </div>
+                                    <span class="ecosystem-card-tech">WebSockets & Pub/Sub</span>
+                                </div>
+                                <p class="ecosystem-card-body">
+                                    Streams live GPS coordinates from mobile units, emergency ambulances, and municipal sweepers directly into the visualizer.
+                                </p>
+                                <div class="ecosystem-tags">
+                                    <span class="ecosystem-tag">Browser Geolocation API</span>
+                                    <span class="ecosystem-tag">Socket.IO / WebSockets</span>
+                                    <span class="ecosystem-tag">Supabase Realtime</span>
+                                    <span class="ecosystem-tag">Firebase Firestore</span>
+                                </div>
+                            </div>
+
+                            <!-- Card 6: Environmental & Meteorological Layer -->
+                            <div class="ecosystem-card">
+                                <div class="ecosystem-card-header">
+                                    <div class="ecosystem-card-title">
+                                        <span>🌧️</span>
+                                        <span>Meteorology & Air Quality (AQI)</span>
+                                    </div>
+                                    <span class="ecosystem-card-tech">Sensor Feeds</span>
+                                </div>
+                                <p class="ecosystem-card-body">
+                                    Augments edge weights dynamically: monsoon rain imposes road waterlogging penalties (+45%), while AQI sensors prioritize clean-air corridors.
+                                </p>
+                                <div class="ecosystem-tags">
+                                    <span class="ecosystem-tag">OpenWeatherMap API</span>
+                                    <span class="ecosystem-tag">AQICN Air Quality</span>
+                                    <span class="ecosystem-tag">OpenAQ Global Sensor Grid</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Google Maps API Key Modal -->
+    <div id="gmapsModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>🔑 Google Maps API Configuration</h3>
+                <button id="closeGmapsModalBtn" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div>
+                    <label class="modal-label" for="gmapsKeyInput">Google Maps JavaScript API Key:</label>
+                    <input type="text" id="gmapsKeyInput" class="modal-input" placeholder="Paste your API Key (e.g. AIzaSy...)" autocomplete="off">
+                </div>
+                <p class="modal-hint">
+                    Enables authentic Google Maps vector tiles, satellite imagery, and live real-time Bengaluru traffic layers (Silk Board, Outer Ring Road, MG Road, Electronic City).
+                </p>
+                <div class="modal-options-row">
+                    <div class="form-group">
+                        <label class="modal-label">Map Theme:</label>
+                        <select id="gmapsStyleSelect" class="form-select">
+                            <option value="night" selected>Cyber Dark (Smart City)</option>
+                            <option value="roadmap">Standard Google Roadmap</option>
+                            <option value="satellite">Satellite Imagery</option>
+                            <option value="hybrid">Hybrid (Satellite + Roads)</option>
+                        </select>
+                    </div>
+                    <label class="traffic-switch" style="margin-top: 18px;">
+                        <input type="checkbox" id="gmapsTrafficToggle" checked>
+                        <span class="switch-slider"></span>
+                        <span class="switch-label">Live Google Traffic</span>
+                    </label>
+                </div>
+                <div id="gmapsKeyStatusMsg" style="font-size: 11px; margin-top: 4px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button id="useFreeOsmBtn" class="btn btn-success btn-sm" style="margin-right: auto;">
+                    🌍 Use Free Leaflet OSM (No Key Needed)
+                </button>
+                <button id="clearGmapsKeyBtn" class="btn btn-outline btn-sm">Clear Key</button>
+                <button id="saveGmapsKeyBtn" class="btn btn-primary btn-sm">Save & Activate Google Maps</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exact Location & GPS Calibration Modal -->
+    <div id="exactLocationModal" class="modal-overlay">
+        <div class="modal-box" style="max-width: 560px;">
+            <div class="modal-header">
+                <h3>🎯 Set Exact GPS Location & Calibration</h3>
+                <button id="closeExactLocationModalBtn" class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 700; color: #34d399; font-size: 13px;">🛰️ Live GPS Tracker Status</span>
+                        <span id="gpsLiveStatusBadge" style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;">STANDBY</span>
+                    </div>
+                    <div id="gpsStatusDetails" style="font-size: 11px; color: #94a3b8; margin-top: 4px;">
+                        Acquire high-accuracy GPS, continuous live tracking, or search your exact address below.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="modal-label">Search Any Street, Apartment, Landmark, or Area:</label>
+                    <div style="display: flex; gap: 6px;">
+                        <input type="text" id="exactAddressInput" class="modal-input" placeholder="e.g., Indiranagar 100ft road, Koramangala 4th block, PES University..." style="margin-bottom: 0;">
+                        <button type="button" id="searchExactAddressBtn" class="btn btn-primary btn-sm" style="white-space: nowrap; padding: 0 14px;">
+                            🔍 Locate
+                        </button>
+                    </div>
+                </div>
+
+                <div style="margin: 12px 0;">
+                    <span style="font-size: 11px; color: #94a3b8; font-weight: 600;">Quick Bangalore Neighborhoods:</span>
+                    <div class="quick-zones-chips" style="display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px;">
+                        <button type="button" class="route-chip" onclick="setExactLocationByCoordinates(12.9782, 77.6441, 'Indiranagar (100 Ft Rd)')">Indiranagar</button>
+                        <button type="button" class="route-chip" onclick="setExactLocationByCoordinates(12.9352, 77.6245, 'Koramangala (5th Block)')">Koramangala</button>
+                        <button type="button" class="route-chip" onclick="setExactLocationByCoordinates(12.9698, 77.7499, 'Whitefield (ITPL corridor)')">Whitefield</button>
+                        <button type="button" class="route-chip" onclick="setExactLocationByCoordinates(12.9110, 77.6480, 'HSR Layout (Sector 1)')">HSR Layout</button>
+                        <button type="button" class="route-chip" onclick="setExactLocationByCoordinates(12.9295, 77.5810, 'Jayanagar (4th Block)')">Jayanagar</button>
+                        <button type="button" class="route-chip" onclick="setExactLocationByCoordinates(13.0030, 77.5690, 'Malleshwaram (Sampige Rd)')">Malleshwaram</button>
+                        <button type="button" class="route-chip" onclick="setExactLocationByCoordinates(13.0358, 77.5970, 'Hebbal Flyover Junction')">Hebbal</button>
+                        <button type="button" class="route-chip" onclick="setExactLocationByCoordinates(12.8452, 77.6602, 'Electronic City (Phase 1)')">Electronic City</button>
+                        <button type="button" class="route-chip" onclick="setExactLocationByCoordinates(12.9757, 77.5728, 'Majestic Kempegowda Central')">Majestic</button>
+                        <button type="button" class="route-chip" onclick="setExactLocationByCoordinates(13.0285, 77.5450, 'Yeshwanthpur (Tumkur Rd)')">Yeshwanthpur</button>
+                    </div>
+                </div>
+
+                <div id="gpsPermissionNotice" style="display: none; background: rgba(245, 158, 11, 0.12); border: 1px solid #f59e0b; border-radius: 6px; padding: 10px 12px; margin-top: 10px; font-size: 11px; color: #fbbf24; line-height: 1.5;">
+                    <b>🔒 Browser Permission Tip:</b> Location access is currently blocked.<br>
+                    Click the lock/tune icon 🔒 in your browser address bar next to <code>127.0.0.1:5050</code> and set <b>Location</b> to <b>Allow</b>, then refresh.<br>
+                    Or use <b>Click Anywhere on Map</b> below to pinpoint manually!
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 8px; justify-content: flex-end;">
+                <button type="button" id="startMapPickModeBtn" class="btn btn-outline btn-sm" style="border-color: #38bdf8; color: #38bdf8; margin-right: auto;">
+                    📍 Click Anywhere on Map
+                </button>
+                <button type="button" id="acquireHighAccuracyGpsBtn" class="btn btn-success btn-sm">
+                    🛰️ Acquire High-Accuracy GPS
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/algorithms.js"></script>
+    <script src="/static/js/graph_canvas.js"></script>
+    <script src="/static/js/gis_map.js"></script>
+    <script src="/static/js/google_map.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
